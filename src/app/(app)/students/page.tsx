@@ -110,8 +110,8 @@ export default function StudentsPage() {
 
   return (
     <>
-      <PageHeader 
-        title="Students" 
+      <PageHeader
+        title="Students"
         description="Manage student registrations and view student details."
         actions={
           <Dialog open={isAddStudentDialogOpen} onOpenChange={setIsAddStudentDialogOpen}>
@@ -183,9 +183,9 @@ export default function StudentsPage() {
                 <Card key={student.id} className="flex flex-col">
                   <CardHeader className="flex flex-row items-center gap-4">
                     <div className="relative h-16 w-16">
-                       <Image 
-                        src={student.imageUrl || `https://picsum.photos/seed/${student.id}/100/100`} 
-                        alt={student.name} 
+                       <Image
+                        src={student.imageUrl || `https://picsum.photos/seed/${student.id}/100/100`}
+                        alt={student.name}
                         width={64}
                         height={64}
                         className="rounded-full object-cover aspect-square"
@@ -198,10 +198,15 @@ export default function StudentsPage() {
                     </div>
                   </CardHeader>
                   <CardContent className="flex-grow">
-                    <p className="text-sm text-muted-foreground">
-                      {/* Backend does not provide registeredAt, using placeholder */}
-                      Registered on: {new Date(student.registeredAt).toLocaleDateString()}
-                    </p>
+                    {student.registeredAt ? (
+                      <p className="text-sm text-muted-foreground">
+                        Registered on: {new Date(student.registeredAt).toLocaleDateString()}
+                      </p>
+                    ) : (
+                      <p className="text-sm text-muted-foreground">
+                        Registration date not available.
+                      </p>
+                    )}
                   </CardContent>
                   <CardFooter>
                      <p className="text-xs text-muted-foreground">More actions coming soon.</p>
@@ -225,3 +230,4 @@ export default function StudentsPage() {
     </>
   );
 }
+

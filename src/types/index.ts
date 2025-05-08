@@ -2,7 +2,7 @@ export interface Student {
   id: string; // Unique student ID
   name: string;
   imageUrl?: string; // URL to student's photo
-  registeredAt: string; // ISO date string
+  registeredAt?: string; // ISO date string, now optional
 }
 
 export type AttendanceStatus = 'Present' | 'Absent' | 'Late';
@@ -49,3 +49,4 @@ export interface AttendanceTrendItem {
   absent: number;
   late: number;
 }
+
