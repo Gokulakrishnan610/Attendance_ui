@@ -37,7 +37,7 @@ export default function StudentsPage() {
       setFilteredStudents(apiStudents);
     } catch (error: any) {
       console.error("Error fetching students:", error);
-      toast({ title: "Error", description: error.message || "Could not fetch students.", variant: "destructive" });
+      toast({ title: "Error Fetching Students", description: error.message || "Could not fetch students.", variant: "destructive" });
       setFilteredStudents([]); 
     } finally {
       setIsLoading(false);
@@ -118,7 +118,7 @@ export default function StudentsPage() {
                 <PlusCircle className="mr-2 h-4 w-4" /> Add Student
               </Button>
             </DialogTrigger>
-            <DialogContent className="sm:max-w-[480px]"> {/* Increased width slightly for better form layout */}
+            <DialogContent className="sm:max-w-[480px]">
               <DialogHeader>
                 <DialogTitle>Add New Student</DialogTitle>
                 <DialogDescription>
@@ -134,7 +134,7 @@ export default function StudentsPage() {
                   <Label htmlFor="studentId" className="sm:text-right sm:col-span-1">Student ID</Label>
                   <Input id="studentId" value={newStudentId} onChange={(e) => setNewStudentId(e.target.value)} className="sm:col-span-3" placeholder="e.g. S12345" />
                 </div>
-                <div className="grid grid-cols-1 gap-2 sm:grid-cols-4 sm:items-start sm:gap-4"> {/* items-start for picture label */}
+                <div className="grid grid-cols-1 gap-2 sm:grid-cols-4 sm:items-start sm:gap-4">
                   <Label htmlFor="picture" className="sm:text-right sm:col-span-1 sm:pt-2">Face Image</Label>
                   <div className="sm:col-span-3 space-y-2">
                     <Input id="picture" type="file" accept="image/*" onChange={handleImageChange} />
@@ -169,18 +169,18 @@ export default function StudentsPage() {
               placeholder="Search students..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full sm:max-w-sm"
+              className="w-full md:max-w-sm"
             />
           </CardContent>
         </Card>
 
         {isLoading ? (
-          <p className="text-center text-muted-foreground">Loading students...</p>
+          <p className="text-center text-muted-foreground py-10">Loading students...</p>
         ) : filteredStudents.length > 0 ? (
-          <ScrollArea className="h-[calc(100vh-24rem)] sm:h-[calc(100vh-20rem)]"> {/* Adjust height for search bar */}
-            <div className="grid gap-4 sm:grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+          <ScrollArea className="h-[calc(100vh-28rem)] sm:h-[calc(100vh-24rem)]">
+            <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
               {filteredStudents.map((student) => (
-                <Card key={student.id} className="flex flex-col h-full"> {/* Added h-full for uniform height */}
+                <Card key={student.id} className="flex flex-col">
                   <CardHeader className="flex flex-row items-center gap-4 p-4">
                     <div className="relative h-16 w-16 shrink-0">
                        <Image
@@ -192,8 +192,8 @@ export default function StudentsPage() {
                         data-ai-hint="person student"
                       />
                     </div>
-                    <div className="min-w-0"> {/* Added for text truncation if needed */}
-                      <CardTitle className="truncate">{student.name}</CardTitle>
+                    <div className="min-w-0 flex-1"> 
+                      <CardTitle className="truncate" title={student.name}>{student.name}</CardTitle>
                       <CardDescription>ID: {student.id}</CardDescription>
                     </div>
                   </CardHeader>
@@ -208,7 +208,7 @@ export default function StudentsPage() {
                       </p>
                     )}
                   </CardContent>
-                  <CardFooter className="px-4 pb-4 pt-2 mt-auto"> {/* Added mt-auto to push footer to bottom */}
+                  <CardFooter className="px-4 pb-4 pt-2 mt-auto"> 
                      <p className="text-xs text-muted-foreground">More actions coming soon.</p>
                   </CardFooter>
                 </Card>
@@ -230,4 +230,3 @@ export default function StudentsPage() {
     </>
   );
 }
-

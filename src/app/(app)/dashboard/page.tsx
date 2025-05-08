@@ -33,10 +33,14 @@ export default function DashboardPage() {
       setAttendanceTrend(statsResponse.attendanceTrend);
       setTotalStudents(studentsResponse.length);
 
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error fetching dashboard data:", error);
-      toast({ title: "Error", description: "Could not fetch dashboard data.", variant: "destructive" });
-      setTodayStats({ present: 0, absent: 0, late: 0, total: 0 }); // Default on error
+      toast({ 
+        title: "Dashboard Error", 
+        description: error.message || "Could not fetch dashboard data. Check console for details.", 
+        variant: "destructive" 
+      });
+      setTodayStats({ present: 0, absent: 0, late: 0, total: 0 }); 
       setAttendanceTrend([]);
       setTotalStudents(0);
     } finally {
@@ -87,7 +91,7 @@ export default function DashboardPage() {
             actions={<Button onClick={handleTrainModel} disabled={isTraining}><BrainCircuit className="mr-2 h-4 w-4"/> {isTraining ? "Training..." : "Train Model"}</Button>}
           />
           <div className="flex items-center justify-center h-64">
-            <p className="text-muted-foreground">Could not load dashboard data. Please try again.</p>
+            <p className="text-muted-foreground">Could not load dashboard data. Please try again or check the backend connection.</p>
           </div>
         </div>
     );
@@ -108,7 +112,7 @@ export default function DashboardPage() {
         actions={<Button onClick={handleTrainModel} disabled={isTraining}><BrainCircuit className="mr-2 h-4 w-4"/> {isTraining ? "Training..." : "Train Model"}</Button>}
       />
       <div className="container mx-auto p-4 md:p-6 lg:p-8 space-y-6">
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+        <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Total Students</CardTitle>
@@ -127,7 +131,7 @@ export default function DashboardPage() {
             <CardContent>
               <div className="text-2xl font-bold">{todayStats.present}</div>
               <p className="text-xs text-muted-foreground">
-                {totalStudents > 0 ? `${Math.round((todayStats.present / totalStudents) * 100)}%` : 'N/A'} of total
+                {totalStudents > 0 ? `${Math.round((todayStats.present / totalStudents) * 100)}%` : '0%'} of total
               </p>
             </CardContent>
           </Card>
@@ -139,7 +143,7 @@ export default function DashboardPage() {
             <CardContent>
               <div className="text-2xl font-bold">{todayStats.absent}</div>
                <p className="text-xs text-muted-foreground">
-                {totalStudents > 0 ? `${Math.round((todayStats.absent / totalStudents) * 100)}%` : 'N/A'} of total
+                {totalStudents > 0 ? `${Math.round((todayStats.absent / totalStudents) * 100)}%` : '0%'} of total
               </p>
             </CardContent>
           </Card>
@@ -151,14 +155,14 @@ export default function DashboardPage() {
             <CardContent>
               <div className="text-2xl font-bold">{todayStats.late}</div>
               <p className="text-xs text-muted-foreground">
-                 {totalStudents > 0 ? `${Math.round((todayStats.late / totalStudents) * 100)}%` : 'N/A'} of total
+                 {totalStudents > 0 ? `${Math.round((todayStats.late / totalStudents) * 100)}%` : '0%'} of total
               </p>
             </CardContent>
           </Card>
         </div>
 
-        <div className="grid gap-6 md:grid-cols-2">
-          <Card>
+        <div className="grid gap-6 grid-cols-1 lg:grid-cols-2">
+          <Card className="col-span-1">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <TrendingUp className="h-5 w-5" />
@@ -170,7 +174,7 @@ export default function DashboardPage() {
               <ResponsiveContainer width="100%" height={300}>
                 <BarChart data={attendanceTrend}>
                   <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                  <XAxis dataKey="date" tickFormatter={(tick) => new Date(tick + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} />
+                  <XAxis dataKey="date" tickFormatter={(tick) => new Date(tick + 'T00:00:00Z').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} />
                   <YAxis allowDecimals={false} />
                   <Tooltip
                     contentStyle={{ backgroundColor: 'hsl(var(--background))', border: '1px solid hsl(var(--border))', borderRadius: 'var(--radius)' }}
@@ -186,7 +190,7 @@ export default function DashboardPage() {
             </CardContent>
           </Card>
 
-          <Card>
+          <Card className="col-span-1">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <BarChart2 className="h-5 w-5" />
@@ -195,30 +199,36 @@ export default function DashboardPage() {
               <CardDescription>Distribution of student attendance status for today.</CardDescription>
             </CardHeader>
             <CardContent>
-              <ResponsiveContainer width="100%" height={300}>
-                <PieChart>
-                  <Pie
-                    data={pieData}
-                    cx="50%"
-                    cy="50%"
-                    labelLine={false}
-                    label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
-                    outerRadius={100}
-                    fill="#8884d8"
-                    dataKey="value"
-                  >
-                    {pieData.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                    ))}
-                  </Pie>
-                  <Tooltip
-                    contentStyle={{ backgroundColor: 'hsl(var(--background))', border: '1px solid hsl(var(--border))', borderRadius: 'var(--radius)' }}
-                    labelStyle={{ color: 'hsl(var(--foreground))' }}
-                    itemStyle={{ color: 'hsl(var(--foreground))' }}
-                  />
-                   <Legend />
-                </PieChart>
-              </ResponsiveContainer>
+              {pieData.length > 0 ? (
+                <ResponsiveContainer width="100%" height={300}>
+                  <PieChart>
+                    <Pie
+                      data={pieData}
+                      cx="50%"
+                      cy="50%"
+                      labelLine={false}
+                      label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
+                      outerRadius={100}
+                      fill="#8884d8"
+                      dataKey="value"
+                    >
+                      {pieData.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                      ))}
+                    </Pie>
+                    <Tooltip
+                      contentStyle={{ backgroundColor: 'hsl(var(--background))', border: '1px solid hsl(var(--border))', borderRadius: 'var(--radius)' }}
+                      labelStyle={{ color: 'hsl(var(--foreground))' }}
+                      itemStyle={{ color: 'hsl(var(--foreground))' }}
+                    />
+                    <Legend />
+                  </PieChart>
+                </ResponsiveContainer>
+              ) : (
+                <div className="flex items-center justify-center h-[300px]">
+                  <p className="text-muted-foreground">No attendance data for today to display chart.</p>
+                </div>
+              )}
             </CardContent>
           </Card>
         </div>

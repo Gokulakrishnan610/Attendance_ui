@@ -44,9 +44,9 @@ export default function AttendancePage() {
     try {
       const apiStudents = await getAllStudentsApi();
       setStudents(apiStudents);
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error fetching student list:", error);
-      toast({ title: "Error", description: "Could not fetch student list.", variant: "destructive" });
+      toast({ title: "Error Fetching Students", description: error.message || "Could not fetch student list.", variant: "destructive" });
     } finally {
       setIsLoadingStudents(false);
     }
@@ -82,7 +82,7 @@ export default function AttendancePage() {
 
     } catch (error: any) {
       console.error(`Error fetching attendance for ${dateStr}:`, error);
-      toast({ title: "Error", description: error.message || `Could not fetch attendance for ${format(parseISO(dateStr), "PPP")}.`, variant: "destructive" });
+      toast({ title: "Error Fetching Attendance", description: error.message || `Could not fetch attendance for ${format(parseISO(dateStr), "PPP")}.`, variant: "destructive" });
        if (students.length > 0) {
         const fallbackRecords = students.map(student => ({
             id: `fallback-${student.id}-${dateStr}`,
@@ -127,9 +127,6 @@ export default function AttendancePage() {
   const handleManualUpdate = async () => {
     if (selectedRecordForUpdate) {
       try {
-        // Backend's /update_attendance uses today's date, not the provided one.
-        // For UI consistency, we pass selectedRecordForUpdate.date
-        // but the actual update might be for current day based on backend logic.
         const response = await updateAttendanceApi(selectedRecordForUpdate.studentId, newStatus, selectedRecordForUpdate.date);
         if (response.error) throw new Error(response.error);
         toast({ title: "Attendance Updated", description: response.message || `${selectedRecordForUpdate.studentName}'s status set to ${newStatus}.` });
@@ -169,12 +166,8 @@ export default function AttendancePage() {
         title: "Video Processed", 
         description: response.message || `Attendance marked. Present: ${response.present_count ?? 0}, Absent: ${response.absent_count ?? 0}. Records refreshed.` 
       });
-      // Video processing always marks for today. If selectedDate is not today, the user might be confused.
-      // It's better to set selectedDate to today after successful video processing.
       const today = new Date();
-      setSelectedDate(today); // This will trigger re-fetch for today's date.
-      // If fetchAttendanceForDate is not automatically triggered by selectedDate change (due to memoization or other logic), call it explicitly:
-      // fetchAttendanceForDate(format(today, 'yyyy-MM-dd')); 
+      setSelectedDate(today); 
       setVideoFile(null);
       setIsVideoUploadDialogOpen(false);
     } catch (error: any) {
@@ -203,7 +196,7 @@ export default function AttendancePage() {
           <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
             <Popover>
               <PopoverTrigger asChild>
-                <Button variant="outline" className="w-full sm:w-[280px] justify-start text-left font-normal">
+                <Button variant="outline" className="w-full sm:w-auto md:w-[280px] justify-start text-left font-normal">
                   <CalendarIcon className="mr-2 h-4 w-4" />
                   {selectedDate ? format(selectedDate, "PPP") : <span>Pick a date</span>}
                 </Button>
@@ -262,30 +255,32 @@ export default function AttendancePage() {
             ) : students.length === 0 ? (
                  <p className="text-muted-foreground text-center py-8">No students registered in the system yet. Please add students first.</p>
             ) : dailyRecords.length > 0 ? (
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Student Name</TableHead>
-                    <TableHead>Student ID</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead className="text-right">Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {dailyRecords.map((record) => (
-                    <TableRow key={record.studentId + record.date}>
-                      <TableCell className="font-medium">{record.studentName}</TableCell>
-                      <TableCell>{record.studentId}</TableCell>
-                      <TableCell>{getStatusBadge(record.status)}</TableCell>
-                      <TableCell className="text-right">
-                        <Button variant="ghost" size="sm" onClick={() => openManualUpdateDialog(record)}>
-                          <Edit3 className="mr-2 h-4 w-4" /> Edit
-                        </Button>
-                      </TableCell>
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Student Name</TableHead>
+                      <TableHead>Student ID</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead className="text-right">Actions</TableHead>
                     </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+                  </TableHeader>
+                  <TableBody>
+                    {dailyRecords.map((record) => (
+                      <TableRow key={record.studentId + record.date}>
+                        <TableCell className="font-medium whitespace-nowrap">{record.studentName}</TableCell>
+                        <TableCell className="whitespace-nowrap">{record.studentId}</TableCell>
+                        <TableCell>{getStatusBadge(record.status)}</TableCell>
+                        <TableCell className="text-right whitespace-nowrap">
+                          <Button variant="ghost" size="sm" onClick={() => openManualUpdateDialog(record)}>
+                            <Edit3 className="mr-2 h-4 w-4" /> Edit
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
             ) : (
               <p className="text-muted-foreground text-center py-8">
                 All registered students are currently marked as absent for this day, or no data available. You can manually update their status or upload a video for today's attendance.
