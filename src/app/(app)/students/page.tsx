@@ -180,7 +180,7 @@ export default function StudentsPage() {
           <ScrollArea className="h-[calc(100vh-24rem)] sm:h-[calc(100vh-20rem)]"> {/* Adjust height for search bar */}
             <div className="grid gap-4 sm:grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
               {filteredStudents.map((student) => (
-                <Card key={student.id} className="flex flex-col">
+                <Card key={student.id} className="flex flex-col h-full"> {/* Added h-full for uniform height */}
                   <CardHeader className="flex flex-row items-center gap-4 p-4">
                     <div className="relative h-16 w-16 shrink-0">
                        <Image
@@ -208,7 +208,7 @@ export default function StudentsPage() {
                       </p>
                     )}
                   </CardContent>
-                  <CardFooter className="px-4 pb-4 pt-2">
+                  <CardFooter className="px-4 pb-4 pt-2 mt-auto"> {/* Added mt-auto to push footer to bottom */}
                      <p className="text-xs text-muted-foreground">More actions coming soon.</p>
                   </CardFooter>
                 </Card>
@@ -230,3 +230,4 @@ export default function StudentsPage() {
     </>
   );
 }
+
