@@ -1,3 +1,4 @@
+// src/app/(app)/students/page.tsx
 "use client";
 
 import { useState, useEffect } from 'react';
@@ -6,33 +7,54 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { PlusCircle, Users, Search, Image as ImageIcon } from "lucide-react";
+import { PlusCircle, Users, Search } from "lucide-react";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { useAppStore } from '@/store';
 import type { Student } from '@/types';
 import { PageHeader } from '@/components/page-header';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useToast } from '@/hooks/use-toast';
-import { summarizeVideo, type SummarizeVideoInput } from '@/ai/flows/video-summary'; // Assuming this is where face processing would go
+import { getAllStudentsApi, addStudentApi } from '@/services/api'; // Import API service
 
 export default function StudentsPage() {
-  const { students, addStudent } = useAppStore();
+  const { students, setStudents } = useAppStore(); // Get students from store and setter
+  const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
-  const [filteredStudents, setFilteredStudents] = useState<Student[]>(students);
+  const [filteredStudents, setFilteredStudents] = useState<Student[]>([]);
   const [isAddStudentDialogOpen, setIsAddStudentDialogOpen] = useState(false);
   const { toast } = useToast();
 
   // Form state for adding new student
   const [newStudentName, setNewStudentName] = useState('');
-  const [newStudentId, setNewStudentId] = useState('');
+  const [newStudentId, setNewStudentId] = useState(''); // This is student_id for backend
   const [newStudentImageFile, setNewStudentImageFile] = useState<File | null>(null);
   const [newStudentImagePreview, setNewStudentImagePreview] = useState<string | null>(null);
+
+  const fetchStudents = async () => {
+    setIsLoading(true);
+    try {
+      const apiStudents = await getAllStudentsApi();
+      setStudents(apiStudents); // Update store
+      setFilteredStudents(apiStudents);
+    } catch (error) {
+      console.error("Error fetching students:", error);
+      toast({ title: "Error", description: "Could not fetch students.", variant: "destructive" });
+      setFilteredStudents([]); // Ensure filteredStudents is an array on error
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchStudents();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Fetch on mount
 
   useEffect(() => {
     setFilteredStudents(
       students.filter(student =>
         student.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        student.id.toLowerCase().includes(searchTerm.toLowerCase())
+        student.id.toLowerCase().includes(searchTerm.toLowerCase()) // student.id is student_id from backend
       )
     );
   }, [searchTerm, students]);
@@ -55,51 +77,36 @@ export default function StudentsPage() {
       return;
     }
 
-    // Simulate image upload and processing. In a real app, this would involve backend calls.
-    // For AI-Powered Face Recognition, this is where you'd use the summarizeVideo or similar GenAI flow
-    // by converting the image to a data URI.
-    // This example focuses on the UI and state management part.
-    
-    // For demonstration, let's pretend we're using the video summary flow for an image.
-    // This is NOT how it would actually work for face recognition, but shows AI flow integration.
-    // A real face recognition flow would be needed.
-    if (newStudentImageFile) {
-        const reader = new FileReader();
-        reader.onloadend = async () => {
-            const imageDataUri = reader.result as string;
-            // This is a placeholder. summarizeVideo is for videos, not face registration.
-            // A proper face registration AI flow is needed.
-            try {
-                // const summaryResult = await summarizeVideo({ videoDataUri: imageDataUri });
-                // console.log("AI 'processing' result (placeholder):", summaryResult);
-                // Proceed with adding student if AI processing (simulated) is successful
-                 addStudent({ name: newStudentName, studentId: newStudentId, imageUrl: newStudentImagePreview || undefined });
-                toast({
-                    title: "Student Added",
-                    description: `${newStudentName} has been registered. (AI processing simulated)`,
-                });
-            } catch (error) {
-                console.error("AI processing error (placeholder):", error);
-                 toast({
-                    title: "AI Error",
-                    description: "Simulated AI processing failed. Student not added.",
-                    variant: "destructive",
-                });
-                return; // Stop if AI part fails
-            }
+    const formData = new FormData();
+    formData.append('name', newStudentName);
+    formData.append('student_id', newStudentId);
+    formData.append('image', newStudentImageFile);
 
-            setNewStudentName('');
-            setNewStudentId('');
-            setNewStudentImageFile(null);
-            setNewStudentImagePreview(null);
-            setIsAddStudentDialogOpen(false);
-        };
-        reader.readAsDataURL(newStudentImageFile);
+    try {
+      const response = await addStudentApi(formData);
+      if (response.error) {
+        throw new Error(response.error);
+      }
+      toast({
+        title: "Student Added",
+        description: response.message || `${newStudentName} has been registered.`,
+      });
+      // Reset form and close dialog
+      setNewStudentName('');
+      setNewStudentId('');
+      setNewStudentImageFile(null);
+      setNewStudentImagePreview(null);
+      setIsAddStudentDialogOpen(false);
+      fetchStudents(); // Re-fetch student list
+    } catch (error: any) {
+      console.error("Error adding student:", error);
+      toast({
+        title: "Error Adding Student",
+        description: error.message || "Could not add student.",
+        variant: "destructive",
+      });
     }
-
-
   };
-
 
   return (
     <>
@@ -167,7 +174,9 @@ export default function StudentsPage() {
           </CardContent>
         </Card>
 
-        {filteredStudents.length > 0 ? (
+        {isLoading ? (
+          <p className="text-center text-muted-foreground">Loading students...</p>
+        ) : filteredStudents.length > 0 ? (
           <ScrollArea className="h-[calc(100vh-20rem)]"> {/* Adjust height as needed */}
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
               {filteredStudents.map((student) => (
@@ -190,11 +199,11 @@ export default function StudentsPage() {
                   </CardHeader>
                   <CardContent className="flex-grow">
                     <p className="text-sm text-muted-foreground">
+                      {/* Backend does not provide registeredAt, using placeholder */}
                       Registered on: {new Date(student.registeredAt).toLocaleDateString()}
                     </p>
                   </CardContent>
                   <CardFooter>
-                    {/* <Button variant="outline" size="sm">View Details</Button> */}
                      <p className="text-xs text-muted-foreground">More actions coming soon.</p>
                   </CardFooter>
                 </Card>

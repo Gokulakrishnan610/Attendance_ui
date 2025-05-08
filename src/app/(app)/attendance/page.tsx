@@ -1,3 +1,4 @@
+// src/app/(app)/attendance/page.tsx
 "use client";
 
 import { useState, useEffect, useMemo } from 'react';
@@ -14,18 +15,23 @@ import { useAppStore } from '@/store';
 import type { AttendanceRecord, Student, AttendanceStatus } from '@/types';
 import { PageHeader } from '@/components/page-header';
 import { useToast } from '@/hooks/use-toast';
-import { summarizeVideo, type SummarizeVideoInput } from '@/ai/flows/video-summary';
 import { Input } from '@/components/ui/input';
-import { Label } from "@/components/ui/label"; // Added import for Label
+import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogDescription } from '@/components/ui/dialog';
+import { getAttendanceApi, recognizeFacesApi, updateAttendanceApi, getAllStudentsApi } from '@/services/api'; // Import API service
 
 export default function AttendancePage() {
-  const { students, attendanceRecords, addAttendanceRecord, updateAttendanceRecord } = useAppStore();
+  const { students, setStudents } = useAppStore(); // Using students from store as a master list
+  const [isLoadingStudents, setIsLoadingStudents] = useState(true);
+  const [isLoadingAttendance, setIsLoadingAttendance] = useState(false);
+  
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
-  const [dailyRecords, setDailyRecords] = useState<AttendanceRecord[]>([]);
+  const [dailyRecords, setDailyRecords] = useState<AttendanceRecord[]>([]); // Records for the selected day from API combined with all students
+  
   const [isManualUpdateDialogOpen, setIsManualUpdateDialogOpen] = useState(false);
   const [selectedRecordForUpdate, setSelectedRecordForUpdate] = useState<AttendanceRecord | null>(null);
   const [newStatus, setNewStatus] = useState<AttendanceStatus>('Present');
+  
   const [isVideoUploadDialogOpen, setIsVideoUploadDialogOpen] = useState(false);
   const [videoFile, setVideoFile] = useState<File | null>(null);
   const [isProcessingVideo, setIsProcessingVideo] = useState(false);
@@ -33,36 +39,83 @@ export default function AttendancePage() {
 
   const formattedDate = useMemo(() => format(selectedDate, 'yyyy-MM-dd'), [selectedDate]);
 
-  useEffect(() => {
-    const recordsForDate = attendanceRecords.filter(r => r.date === formattedDate);
-    const studentMap = new Map(students.map(s => [s.id, s]));
-    
-    const enrichedRecords: AttendanceRecord[] = [];
-    const recordedStudentIds = new Set(recordsForDate.map(r => r.studentId));
-
-    // Add existing records
-    recordsForDate.forEach(record => {
-        enrichedRecords.push({
-            ...record,
-            studentName: studentMap.get(record.studentId)?.name || 'Unknown Student'
-        });
-    });
-
-    // Add students who are not in recordsForDate as 'Absent' for the selected day
-    students.forEach(student => {
-        if (!recordedStudentIds.has(student.id)) {
-            enrichedRecords.push({
-                id: `new-${student.id}-${formattedDate}`, // Temporary ID for new records
-                studentId: student.id,
-                studentName: student.name,
-                date: formattedDate,
-                status: 'Absent', // Default to Absent if no record found
-            });
+  const fetchStudentList = async () => {
+    setIsLoadingStudents(true);
+    try {
+      const apiStudents = await getAllStudentsApi();
+      setStudents(apiStudents);
+    } catch (error) {
+      console.error("Error fetching student list:", error);
+      toast({ title: "Error", description: "Could not fetch student list.", variant: "destructive" });
+    } finally {
+      setIsLoadingStudents(false);
+    }
+  };
+  
+  const fetchAttendanceForDate = async (dateStr: string) => {
+    if (students.length === 0 && !isLoadingStudents) { // Ensure students are loaded first or being loaded
+      console.warn("Student list not loaded, cannot accurately determine full attendance yet.");
+      // setDailyRecords([]); // Or show a message to load students
+      // return;
+    }
+    setIsLoadingAttendance(true);
+    try {
+      // API returns records for students who have an entry.
+      const apiRecords = await getAttendanceApi(dateStr); 
+      
+      const studentMap = new Map(students.map(s => [s.id, s]));
+      const recordsMap = new Map(apiRecords.map(r => [r.studentId, r]));
+      
+      const enrichedRecords: AttendanceRecord[] = students.map(student => {
+        const existingApiRecord = recordsMap.get(student.id);
+        if (existingApiRecord) {
+          return { ...existingApiRecord, studentName: student.name }; // Use API record, ensure name
+        } else {
+          // If no record from API, student is considered Absent for that day
+          return {
+            id: `new-${student.id}-${dateStr}`, // Temp ID for new/absent records
+            studentId: student.id,
+            studentName: student.name,
+            date: dateStr,
+            status: 'Absent',
+          };
         }
-    });
-    
-    setDailyRecords(enrichedRecords.sort((a,b) => a.studentName.localeCompare(b.studentName)));
-  }, [selectedDate, attendanceRecords, students, formattedDate]);
+      });
+      
+      setDailyRecords(enrichedRecords.sort((a,b) => a.studentName.localeCompare(b.studentName)));
+
+    } catch (error) {
+      console.error(`Error fetching attendance for ${dateStr}:`, error);
+      toast({ title: "Error", description: `Could not fetch attendance for ${format(parseISO(dateStr), "PPP")}.`, variant: "destructive" });
+      // Fallback: show all students as absent if API fails but students are loaded
+       if (students.length > 0) {
+        const fallbackRecords = students.map(student => ({
+            id: `fallback-${student.id}-${dateStr}`,
+            studentId: student.id,
+            studentName: student.name,
+            date: dateStr,
+            status: 'Absent' as AttendanceStatus,
+        }));
+        setDailyRecords(fallbackRecords.sort((a,b) => a.studentName.localeCompare(b.studentName)));
+       } else {
+        setDailyRecords([]);
+       }
+    } finally {
+      setIsLoadingAttendance(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchStudentList();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Fetch student list on mount
+
+  useEffect(() => {
+    if (!isLoadingStudents) { // Only fetch attendance if students are loaded or loading has finished
+        fetchAttendanceForDate(formattedDate);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedDate, formattedDate, isLoadingStudents, students]); // Re-fetch when date or student list (if it's reloaded) changes
 
   const handleDateChange = (date?: Date) => {
     if (date) {
@@ -76,22 +129,20 @@ export default function AttendancePage() {
     setIsManualUpdateDialogOpen(true);
   };
 
-  const handleManualUpdate = () => {
+  const handleManualUpdate = async () => {
     if (selectedRecordForUpdate) {
-      // If it's a new record (ID starts with 'new-'), add it. Otherwise, update.
-      if (selectedRecordForUpdate.id.startsWith('new-')) {
-        addAttendanceRecord({
-          studentId: selectedRecordForUpdate.studentId,
-          studentName: selectedRecordForUpdate.studentName,
-          date: selectedRecordForUpdate.date,
-          status: newStatus,
-        });
-      } else {
-        updateAttendanceRecord(selectedRecordForUpdate.id, newStatus);
+      try {
+        const response = await updateAttendanceApi(selectedRecordForUpdate.studentId, newStatus, selectedRecordForUpdate.date);
+        if (response.error) throw new Error(response.error);
+        toast({ title: "Attendance Updated", description: response.message || `${selectedRecordForUpdate.studentName}'s status set to ${newStatus}.` });
+        fetchAttendanceForDate(formattedDate); // Re-fetch records for the current date
+      } catch (error: any) {
+        console.error("Error updating attendance:", error);
+        toast({ title: "Update Error", description: error.message || "Could not update attendance.", variant: "destructive" });
+      } finally {
+        setIsManualUpdateDialogOpen(false);
+        setSelectedRecordForUpdate(null);
       }
-      toast({ title: "Attendance Updated", description: `${selectedRecordForUpdate.studentName}'s status set to ${newStatus}.` });
-      setIsManualUpdateDialogOpen(false);
-      setSelectedRecordForUpdate(null);
     }
   };
   
@@ -109,39 +160,23 @@ export default function AttendancePage() {
     setIsProcessingVideo(true);
     toast({ title: "Processing Video", description: "This may take a few moments..." });
 
+    const formData = new FormData();
+    formData.append('video', videoFile);
+
     try {
-      const reader = new FileReader();
-      reader.onloadend = async () => {
-        const videoDataUri = reader.result as string;
-        const input: SummarizeVideoInput = { videoDataUri };
-        
-        // The summarizeVideo flow is a placeholder for actual face recognition.
-        // In a real app, this flow would identify students and update their attendance.
-        const result = await summarizeVideo(input); 
-        console.log("Video processing result (summary):", result.summary);
-
-        // Simulate marking attendance based on AI (placeholder logic)
-        // This is highly simplified. A real system would match faces to student IDs.
-        students.slice(0, Math.floor(students.length / 2)).forEach(student => { // Mark ~half as present
-            const existingRecord = dailyRecords.find(r => r.studentId === student.id && r.date === formattedDate);
-            if (existingRecord?.id.startsWith('new-')) {
-                 addAttendanceRecord({ studentId: student.id, studentName: student.name, date: formattedDate, status: 'Present' });
-            } else if (existingRecord) {
-                updateAttendanceRecord(existingRecord.id, 'Present');
-            } else {
-                 addAttendanceRecord({ studentId: student.id, studentName: student.name, date: formattedDate, status: 'Present' });
-            }
-        });
-        
-        toast({ title: "Video Processed", description: `Attendance potentially updated based on video analysis (summary: ${result.summary.substring(0,50)}...). Check records.` });
-        setVideoFile(null);
-        setIsVideoUploadDialogOpen(false);
-      };
-      reader.readAsDataURL(videoFile);
-
-    } catch (error) {
+      const response = await recognizeFacesApi(formData);
+      if (response.error) throw new Error(response.error);
+      
+      toast({ 
+        title: "Video Processed", 
+        description: response.message || `Attendance marked. Present: ${response.present_count ?? 0}, Absent: ${response.absent_count ?? 0}. Records refreshed.` 
+      });
+      fetchAttendanceForDate(formattedDate); // Re-fetch records for the current date
+      setVideoFile(null);
+      setIsVideoUploadDialogOpen(false);
+    } catch (error: any) {
       console.error("Error processing video:", error);
-      toast({ title: "Processing Error", description: "Could not process the video.", variant: "destructive" });
+      toast({ title: "Processing Error", description: error.message || "Could not process the video.", variant: "destructive" });
     } finally {
       setIsProcessingVideo(false);
     }
@@ -184,8 +219,7 @@ export default function AttendancePage() {
                 <DialogHeader>
                   <DialogTitle className="flex items-center gap-2"><Video /> Process Attendance Video</DialogTitle>
                   <DialogDescription>
-                    Upload a class video. The AI will attempt to recognize students and mark attendance.
-                    This is a feature demonstration using a video summarization AI as a placeholder for actual face recognition.
+                    Upload a class video. The system will attempt to recognize students and mark attendance.
                   </DialogDescription>
                 </DialogHeader>
                 <div className="space-y-4 py-4">
@@ -209,14 +243,20 @@ export default function AttendancePage() {
           <CardHeader>
             <CardTitle>Attendance for {format(selectedDate, "MMMM d, yyyy")}</CardTitle>
             <CardDescription>
-              {dailyRecords.length > 0 
-                ? `Showing ${dailyRecords.length} student records for this day.`
-                : `No attendance records found for this day, or no students registered.`
+              {isLoadingAttendance || isLoadingStudents
+                ? "Loading records..."
+                : dailyRecords.length > 0 
+                  ? `Showing ${dailyRecords.length} student records for this day.`
+                  : students.length === 0 
+                    ? "No students registered in the system yet. Please add students first."
+                    : "No attendance data for this day, or all students are marked absent."
               }
             </CardDescription>
           </CardHeader>
           <CardContent>
-            {students.length === 0 ? (
+            {isLoadingAttendance || isLoadingStudents ? (
+                <p className="text-muted-foreground text-center py-8">Loading data...</p>
+            ) : students.length === 0 ? (
                  <p className="text-muted-foreground text-center py-8">No students registered in the system yet. Please add students first.</p>
             ) : dailyRecords.length > 0 ? (
               <Table>
@@ -230,7 +270,7 @@ export default function AttendancePage() {
                 </TableHeader>
                 <TableBody>
                   {dailyRecords.map((record) => (
-                    <TableRow key={record.studentId + record.date}> {/* Use composite key */}
+                    <TableRow key={record.studentId + record.date}>
                       <TableCell className="font-medium">{record.studentName}</TableCell>
                       <TableCell>{record.studentId}</TableCell>
                       <TableCell>{getStatusBadge(record.status)}</TableCell>
@@ -244,7 +284,9 @@ export default function AttendancePage() {
                 </TableBody>
               </Table>
             ) : (
-              <p className="text-muted-foreground text-center py-8">All registered students are currently marked as absent for this day. You can manually update their status or upload a video.</p>
+              <p className="text-muted-foreground text-center py-8">
+                All registered students are currently marked as absent for this day, or no data available. You can manually update their status or upload a video.
+              </p>
             )}
           </CardContent>
         </Card>

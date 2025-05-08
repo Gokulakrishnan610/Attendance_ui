@@ -1,3 +1,4 @@
+// src/app/(app)/settings/page.tsx
 "use client";
 
 import { useState, useEffect } from 'react';
@@ -6,12 +7,13 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Bell, Shield, FileText, Save } from "lucide-react";
+import { Bell, Shield, FileText, Save, Download } from "lucide-react"; // Added Download
 import { useAppStore } from '@/store';
 import type { AppSettings } from '@/types';
 import { PageHeader } from '@/components/page-header';
 import { useToast } from '@/hooks/use-toast';
 import { Separator } from '@/components/ui/separator';
+import { exportCsvApiUrl } from '@/services/api'; // Import API for CSV export
 
 export default function SettingsPage() {
   const { appSettings, updateAppSettings } = useAppStore();
@@ -39,6 +41,15 @@ export default function SettingsPage() {
     toast({
       title: "Settings Saved",
       description: "Your application settings have been updated.",
+    });
+  };
+
+  const handleExportCsv = () => {
+    // Directly open the URL for download
+    window.open(exportCsvApiUrl, '_blank');
+    toast({
+        title: "Exporting CSV",
+        description: "Your CSV export should start downloading shortly.",
     });
   };
 
@@ -75,6 +86,7 @@ export default function SettingsPage() {
                   checked={currentSettings.notifications.push}
                   onCheckedChange={(checked) => handleSettingChange('notifications', 'push', checked)}
                   aria-label="Toggle push notifications"
+                  disabled // Placeholder as this often requires specific setup
                 />
               </div>
             </CardContent>
@@ -82,40 +94,53 @@ export default function SettingsPage() {
 
           <Card>
             <CardHeader>
-              <CardTitle className="flex items-center gap-2"><FileText className="h-5 w-5" />Scheduled Reports</CardTitle>
-              <CardDescription>Configure automated attendance reports.</CardDescription>
+              <CardTitle className="flex items-center gap-2"><FileText className="h-5 w-5" />Reports</CardTitle>
+              <CardDescription>Manage attendance reports.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="flex items-center justify-between space-x-2 p-3 rounded-md border hover:bg-accent/50 transition-colors">
-                <Label htmlFor="scheduled-reports-enabled" className="font-medium">
-                  Enable Scheduled Reports
-                  <p className="text-xs text-muted-foreground">Automatically generate and send attendance reports.</p>
+               <div className="flex items-center justify-between space-x-2 p-3 rounded-md border hover:bg-accent/50 transition-colors">
+                <Label htmlFor="export-csv" className="font-medium">
+                  Export Attendance CSV
+                  <p className="text-xs text-muted-foreground">Download a CSV file of all attendance records.</p>
                 </Label>
-                <Switch
-                  id="scheduled-reports-enabled"
-                  checked={currentSettings.scheduledReports.enabled}
-                  onCheckedChange={(checked) => handleSettingChange('scheduledReports', 'enabled', checked)}
-                  aria-label="Toggle scheduled reports"
-                />
+                <Button onClick={handleExportCsv} variant="outline" size="sm">
+                    <Download className="mr-2 h-4 w-4"/> Export CSV
+                </Button>
               </div>
-              {currentSettings.scheduledReports.enabled && (
-                <div className="space-y-2 p-3 rounded-md border">
-                  <Label htmlFor="report-frequency">Report Frequency</Label>
-                  <Select
-                    value={currentSettings.scheduledReports.frequency}
-                    onValueChange={(value) => handleSettingChange('scheduledReports', 'frequency', value as 'daily' | 'weekly' | 'monthly')}
-                  >
-                    <SelectTrigger id="report-frequency" aria-label="Select report frequency">
-                      <SelectValue placeholder="Select frequency" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="daily">Daily</SelectItem>
-                      <SelectItem value="weekly">Weekly</SelectItem>
-                      <SelectItem value="monthly">Monthly</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              )}
+              <div className="opacity-50 pointer-events-none"> {/* Disabled scheduled reports section */}
+                  <div className="flex items-center justify-between space-x-2 p-3 rounded-md border">
+                    <Label htmlFor="scheduled-reports-enabled" className="font-medium">
+                      Enable Scheduled Reports (Coming Soon)
+                      <p className="text-xs text-muted-foreground">Automatically generate and send attendance reports.</p>
+                    </Label>
+                    <Switch
+                      id="scheduled-reports-enabled"
+                      checked={currentSettings.scheduledReports.enabled}
+                      onCheckedChange={(checked) => handleSettingChange('scheduledReports', 'enabled', checked)}
+                      aria-label="Toggle scheduled reports"
+                      disabled
+                    />
+                  </div>
+                  {currentSettings.scheduledReports.enabled && (
+                    <div className="space-y-2 p-3 rounded-md border mt-2">
+                      <Label htmlFor="report-frequency">Report Frequency</Label>
+                      <Select
+                        value={currentSettings.scheduledReports.frequency}
+                        onValueChange={(value) => handleSettingChange('scheduledReports', 'frequency', value as 'daily' | 'weekly' | 'monthly')}
+                        disabled
+                      >
+                        <SelectTrigger id="report-frequency" aria-label="Select report frequency">
+                          <SelectValue placeholder="Select frequency" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="daily">Daily</SelectItem>
+                          <SelectItem value="weekly">Weekly</SelectItem>
+                          <SelectItem value="monthly">Monthly</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  )}
+              </div>
             </CardContent>
           </Card>
           
@@ -152,3 +177,4 @@ export default function SettingsPage() {
     </>
   );
 }
+
