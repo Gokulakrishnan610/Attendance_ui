@@ -1,13 +1,18 @@
 // src/services/api.ts
 import type { Student, AttendanceRecord, AttendanceStatus, DailyAttendanceStats, AttendanceTrendItem } from '@/types';
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL;
+const ENV_API_URL = process.env.NEXT_PUBLIC_API_URL;
+// Default to http://localhost:5000 (common for local Flask dev) if NEXT_PUBLIC_API_URL is not set.
+const API_URL = ENV_API_URL || 'http://localhost:5000';
 
-if (!API_URL) {
-  console.error(
-    "CRITICAL ERROR: NEXT_PUBLIC_API_URL is not defined. " +
-    "Please ensure it is set in your .env file (e.g., .env.local or .env) " +
-    "and the Next.js development server has been restarted."
+if (!ENV_API_URL) {
+  // Log a warning if the environment variable is not set and we're using the default.
+  // This is important for developers to know, especially for deployment.
+  console.warn(
+    `WARNING: NEXT_PUBLIC_API_URL is not defined in your environment. ` +
+    `The application is falling back to the default API URL: '${API_URL}'. ` +
+    `For production or specific local setups, please define NEXT_PUBLIC_API_URL in your .env file (e.g., .env.local or .env) ` +
+    `and ensure the Next.js development server has been restarted if changes were made.`
   );
 }
 
@@ -42,9 +47,7 @@ interface TrainModelResponse extends ApiResponse {
 
 // Helper function for API requests
 async function fetchApi<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
-  if (!API_URL) {
-    throw new Error("API URL (NEXT_PUBLIC_API_URL) is not configured. Cannot make API calls. Please set it in your .env file and restart the Next.js server.");
-  }
+  // API_URL is now guaranteed to be a string (either from env or default).
   const fullUrl = `${API_URL}${endpoint}`;
   try {
     const response = await fetch(fullUrl, {
@@ -59,22 +62,34 @@ async function fetchApi<T>(endpoint: string, options: RequestInit = {}): Promise
       try {
         errorData = await response.json();
       } catch (e) {
+        // If response is not JSON, use statusText or generic message
         errorData = { error: response.statusText || `HTTP error! status: ${response.status}` };
       }
+      // Use the error message from backend if available, otherwise a generic one.
       throw new Error(errorData?.error || `HTTP error! status: ${response.status} when fetching ${fullUrl}`);
     }
     return response.json() as Promise<T>;
   } catch (error: any) {
-    console.error(`API call failed for ${fullUrl}:`, error);
-    let detailedErrorMessage = `Failed to fetch from ${fullUrl}. Please ensure the backend server is running at this URL, is accessible, and that CORS is configured correctly if on a different origin. Original error: ${error.message}`;
+    // Log the original error object for more detailed debugging if needed
+    console.error(`API call failed for ${fullUrl}:`, error); 
     
-    // Check if it's a generic "Failed to fetch" which often indicates network or CORS issues
+    let detailedErrorMessage = `Error communicating with the backend API at ${fullUrl}. `;
+
     if (error instanceof TypeError && error.message.toLowerCase() === 'failed to fetch') {
-        detailedErrorMessage = `Network error while trying to fetch from ${fullUrl}. Please check the following:
-1. Is the backend server running at ${API_URL}? (Expected: Flask server, often on http://localhost:5000)
-2. Is there a network connection from this application to the server?
-3. If the frontend (Next.js, e.g., on port 9002) and backend (Flask, e.g., on port 5000) are on different origins, ensure CORS is enabled on the Flask backend server.
-   (Original error: ${error.message})`;
+      detailedErrorMessage += `This often indicates a network issue, the backend server not running, or a CORS misconfiguration.
+Please verify:
+1. The backend server is running and accessible at: ${API_URL} (Current effective API base URL${!ENV_API_URL ? " - defaulted as NEXT_PUBLIC_API_URL was not set" : ""}).
+2. If the frontend and backend are on different origins (e.g., ports), ensure CORS is enabled on the backend server (e.g., Flask) to accept requests from this application's origin.
+   For Flask, you can use the 'flask-cors' library:
+     - Install: pip install flask-cors
+     - Usage in your Flask app:
+       from flask_cors import CORS
+       app = Flask(__name__)
+       CORS(app) # This enables CORS for all routes and origins.
+Original error: ${error.message}`;
+    } else {
+      // For other types of errors (e.g., JSON parsing errors if !response.ok but body is not JSON error, or backend-returned error messages)
+      detailedErrorMessage += `Details: ${error.message}`;
     }
     throw new Error(detailedErrorMessage);
   }
@@ -96,13 +111,22 @@ export const recognizeFacesApi = async (formData: FormData): Promise<RecognizeRe
 };
 
 export const getAttendanceApi = async (date: string): Promise<AttendanceRecord[]> => {
-  const endpoint = '/attendance'; 
+  // The backend /attendance route returns records for today if no date is specified.
+  // To fetch for a specific date, the backend would need modification or we filter client-side.
+  // Assuming backend /attendance always gives "today" as per current Flask code structure
+  // Or if it expects a query param, it would be like: `/attendance?date=${date}`
+  // Current flask code for /attendance hardcodes today_date.
+  // For now, let's assume the frontend request for a specific date implies we expect the backend to handle it or filter from a larger set.
+  // The flask endpoint /attendance currently only returns today's attendance.
+  // To support fetching by arbitrary date, backend must be updated.
+  // For this iteration, we'll assume the backend is updated to accept a date query parameter.
+  const endpoint = `/attendance?date=${date}`; 
   
   const records = await fetchApi<any[]>(endpoint); 
   return records.map(r => ({
     id: `${r.student_id}-${r.date}`, 
     studentId: r.student_id,
-    studentName: r.name,
+    studentName: r.name, // Assuming backend joins with students table to provide name
     date: r.date, 
     status: r.status as AttendanceStatus,
   }));
@@ -114,16 +138,21 @@ export const getAllStudentsApi = async (): Promise<Student[]> => {
   return studentsData.map(s => ({
     id: s.student_id,
     name: s.name,
+    // Using a placeholder image as backend doesn't provide imageUrl
     imageUrl: `https://picsum.photos/seed/${s.student_id}/100/100`, 
+    // Backend provides created_at, ensure it's handled
     registeredAt: s.created_at ? new Date(s.created_at).toISOString() : new Date().toISOString(), 
   }));
 };
 
+// Backend update_attendance updates for today's date by default.
+// If specific date update is needed, backend needs to accept 'date' in payload.
 export const updateAttendanceApi = async (studentId: string, status: AttendanceStatus, date: string): Promise<ApiResponse> => {
   return fetchApi<ApiResponse>('/update_attendance', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ student_id: studentId, status: status }), 
+    // Sending date as part of the payload. Backend needs to use this.
+    body: JSON.stringify({ student_id: studentId, status: status, date: date }), 
   });
 };
 
@@ -135,6 +164,7 @@ export const getAttendanceStatsApi = async (): Promise<{
   const backendToday = response.today;
   const backendTrend = response.trend;
 
+  // Ensure total is calculated correctly even if some statuses are missing
   const totalToday = (backendToday.Present || 0) + (backendToday.Absent || 0) + (backendToday.Late || 0);
 
   return {
@@ -145,7 +175,7 @@ export const getAttendanceStatsApi = async (): Promise<{
       total: totalToday, 
     },
     attendanceTrend: backendTrend.map(t => ({
-      date: t.date, 
+      date: t.date, // Assuming t.date is already in YYYY-MM-DD string format
       present: t.Present || 0,
       absent: t.Absent || 0,
       late: t.Late || 0,
@@ -160,5 +190,5 @@ export const trainModelApi = async (): Promise<TrainModelResponse> => {
     });
 };
 
+// This provides the full URL directly, useful for window.open or <a> tags for downloads
 export const exportCsvApiUrl = `${API_URL}/export_csv`;
-
