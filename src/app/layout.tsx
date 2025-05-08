@@ -5,9 +5,6 @@ import './globals.css';
 import { Toaster } from "@/components/ui/toaster";
 import { cn } from '@/lib/utils';
 
-const geistSans = GeistSans;
-const geistMono = GeistMono;
-
 export const metadata: Metadata = {
   title: 'FaceAttend Pro',
   description: 'AI-Powered Attendance System',
@@ -23,8 +20,8 @@ export default function RootLayout({
       <body 
         className={cn(
           "min-h-screen bg-background font-sans antialiased",
-          geistSans.variable,
-          geistMono.variable
+          GeistSans.variable,
+          GeistMono.variable
         )}
       >
         {children}
