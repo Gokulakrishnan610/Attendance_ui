@@ -16,6 +16,7 @@ import { PageHeader } from '@/components/page-header';
 import { useToast } from '@/hooks/use-toast';
 import { summarizeVideo, type SummarizeVideoInput } from '@/ai/flows/video-summary';
 import { Input } from '@/components/ui/input';
+import { Label } from "@/components/ui/label"; // Added import for Label
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogDescription } from '@/components/ui/dialog';
 
 export default function AttendancePage() {
