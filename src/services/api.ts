@@ -6,10 +6,9 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL;
 if (!API_URL) {
   console.error(
     "CRITICAL ERROR: NEXT_PUBLIC_API_URL is not defined. " +
-    "Please ensure it is set in your .env file (e.g., .env.local) " +
+    "Please ensure it is set in your .env file (e.g., .env.local or .env) " +
     "and the Next.js development server has been restarted."
   );
-  // This early check helps identify configuration issues before fetch attempts.
 }
 
 
@@ -26,9 +25,9 @@ interface AttendanceApiResponse extends ApiResponse {
   data?: AttendanceRecord[]; 
 }
 
-interface AttendanceStatsApiResponseBackend { // Renamed to avoid conflict with frontend type
-  today: { Present: number; Absent: number; Late: number; }; // Direct match to backend keys
-  trend: Array<{ date: string; Present: number; Absent: number; Late: number; }>; // Direct match
+interface AttendanceStatsApiResponseBackend { 
+  today: { Present: number; Absent: number; Late: number; }; 
+  trend: Array<{ date: string; Present: number; Absent: number; Late: number; }>; 
 }
 
 interface RecognizeResponse extends ApiResponse {
@@ -44,8 +43,7 @@ interface TrainModelResponse extends ApiResponse {
 // Helper function for API requests
 async function fetchApi<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
   if (!API_URL) {
-    // This is a fallback, the initial check should ideally catch this.
-    throw new Error("API URL is not configured. Cannot make API calls. Check NEXT_PUBLIC_API_URL.");
+    throw new Error("API URL (NEXT_PUBLIC_API_URL) is not configured. Cannot make API calls. Please set it in your .env file and restart the Next.js server.");
   }
   const fullUrl = `${API_URL}${endpoint}`;
   try {
@@ -61,16 +59,24 @@ async function fetchApi<T>(endpoint: string, options: RequestInit = {}): Promise
       try {
         errorData = await response.json();
       } catch (e) {
-        // If response is not JSON, use status text or a generic message
         errorData = { error: response.statusText || `HTTP error! status: ${response.status}` };
       }
       throw new Error(errorData?.error || `HTTP error! status: ${response.status} when fetching ${fullUrl}`);
     }
     return response.json() as Promise<T>;
   } catch (error: any) {
-    // Catch network errors (e.g., server down, DNS issues) or errors from the !response.ok block
     console.error(`API call failed for ${fullUrl}:`, error);
-    throw new Error(error.message || `Failed to fetch from ${fullUrl}. Ensure the backend server is running and accessible.`);
+    let detailedErrorMessage = `Failed to fetch from ${fullUrl}. Please ensure the backend server is running at this URL, is accessible, and that CORS is configured correctly if on a different origin. Original error: ${error.message}`;
+    
+    // Check if it's a generic "Failed to fetch" which often indicates network or CORS issues
+    if (error instanceof TypeError && error.message.toLowerCase() === 'failed to fetch') {
+        detailedErrorMessage = `Network error while trying to fetch from ${fullUrl}. Please check the following:
+1. Is the backend server running at ${API_URL}? (Expected: Flask server, often on http://localhost:5000)
+2. Is there a network connection from this application to the server?
+3. If the frontend (Next.js, e.g., on port 9002) and backend (Flask, e.g., on port 5000) are on different origins, ensure CORS is enabled on the Flask backend server.
+   (Original error: ${error.message})`;
+    }
+    throw new Error(detailedErrorMessage);
   }
 }
 
@@ -90,11 +96,6 @@ export const recognizeFacesApi = async (formData: FormData): Promise<RecognizeRe
 };
 
 export const getAttendanceApi = async (date: string): Promise<AttendanceRecord[]> => {
-  // Backend /attendance always returns today's date based on its code.
-  // The `date` parameter from frontend is currently ignored by this specific backend endpoint.
-  // If the backend were to support date filtering via query param, it would be like:
-  // const endpoint = `/attendance?date=${date}`;
-  // For now, it will always fetch current day's attendance from backend.
   const endpoint = '/attendance'; 
   
   const records = await fetchApi<any[]>(endpoint); 
@@ -102,7 +103,7 @@ export const getAttendanceApi = async (date: string): Promise<AttendanceRecord[]
     id: `${r.student_id}-${r.date}`, 
     studentId: r.student_id,
     studentName: r.name,
-    date: r.date, // Date is already YYYY-MM-DD string from backend
+    date: r.date, 
     status: r.status as AttendanceStatus,
   }));
 };
@@ -114,14 +115,11 @@ export const getAllStudentsApi = async (): Promise<Student[]> => {
     id: s.student_id,
     name: s.name,
     imageUrl: `https://picsum.photos/seed/${s.student_id}/100/100`, 
-    // Use created_at from backend if available, otherwise fallback
     registeredAt: s.created_at ? new Date(s.created_at).toISOString() : new Date().toISOString(), 
   }));
 };
 
 export const updateAttendanceApi = async (studentId: string, status: AttendanceStatus, date: string): Promise<ApiResponse> => {
-  // Backend /update_attendance uses today's date implicitly.
-  // The `date` parameter from frontend is not used by this specific backend endpoint for determining the date.
   return fetchApi<ApiResponse>('/update_attendance', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -147,7 +145,7 @@ export const getAttendanceStatsApi = async (): Promise<{
       total: totalToday, 
     },
     attendanceTrend: backendTrend.map(t => ({
-      date: t.date, // Date is string from backend
+      date: t.date, 
       present: t.Present || 0,
       absent: t.Absent || 0,
       late: t.Late || 0,
@@ -163,3 +161,4 @@ export const trainModelApi = async (): Promise<TrainModelResponse> => {
 };
 
 export const exportCsvApiUrl = `${API_URL}/export_csv`;
+
