@@ -14,19 +14,18 @@ import type { Student } from '@/types';
 import { PageHeader } from '@/components/page-header';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useToast } from '@/hooks/use-toast';
-import { getAllStudentsApi, addStudentApi } from '@/services/api'; // Import API service
+import { getAllStudentsApi, addStudentApi } from '@/services/api'; 
 
 export default function StudentsPage() {
-  const { students, setStudents } = useAppStore(); // Get students from store and setter
+  const { students, setStudents } = useAppStore(); 
   const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [filteredStudents, setFilteredStudents] = useState<Student[]>([]);
   const [isAddStudentDialogOpen, setIsAddStudentDialogOpen] = useState(false);
   const { toast } = useToast();
 
-  // Form state for adding new student
   const [newStudentName, setNewStudentName] = useState('');
-  const [newStudentId, setNewStudentId] = useState(''); // This is student_id for backend
+  const [newStudentId, setNewStudentId] = useState(''); 
   const [newStudentImageFile, setNewStudentImageFile] = useState<File | null>(null);
   const [newStudentImagePreview, setNewStudentImagePreview] = useState<string | null>(null);
 
@@ -34,12 +33,12 @@ export default function StudentsPage() {
     setIsLoading(true);
     try {
       const apiStudents = await getAllStudentsApi();
-      setStudents(apiStudents); // Update store
+      setStudents(apiStudents); 
       setFilteredStudents(apiStudents);
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error fetching students:", error);
-      toast({ title: "Error", description: "Could not fetch students.", variant: "destructive" });
-      setFilteredStudents([]); // Ensure filteredStudents is an array on error
+      toast({ title: "Error", description: error.message || "Could not fetch students.", variant: "destructive" });
+      setFilteredStudents([]); 
     } finally {
       setIsLoading(false);
     }
@@ -48,13 +47,13 @@ export default function StudentsPage() {
   useEffect(() => {
     fetchStudents();
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []); // Fetch on mount
+  }, []); 
 
   useEffect(() => {
     setFilteredStudents(
       students.filter(student =>
         student.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        student.id.toLowerCase().includes(searchTerm.toLowerCase()) // student.id is student_id from backend
+        student.id.toLowerCase().includes(searchTerm.toLowerCase()) 
       )
     );
   }, [searchTerm, students]);
@@ -91,13 +90,12 @@ export default function StudentsPage() {
         title: "Student Added",
         description: response.message || `${newStudentName} has been registered.`,
       });
-      // Reset form and close dialog
       setNewStudentName('');
       setNewStudentId('');
       setNewStudentImageFile(null);
       setNewStudentImagePreview(null);
       setIsAddStudentDialogOpen(false);
-      fetchStudents(); // Re-fetch student list
+      fetchStudents(); 
     } catch (error: any) {
       console.error("Error adding student:", error);
       toast({
@@ -120,31 +118,33 @@ export default function StudentsPage() {
                 <PlusCircle className="mr-2 h-4 w-4" /> Add Student
               </Button>
             </DialogTrigger>
-            <DialogContent className="sm:max-w-[425px]">
+            <DialogContent className="sm:max-w-[480px]"> {/* Increased width slightly for better form layout */}
               <DialogHeader>
                 <DialogTitle>Add New Student</DialogTitle>
                 <DialogDescription>
                   Fill in the details to register a new student. Face image is required for attendance.
                 </DialogDescription>
               </DialogHeader>
-              <div className="grid gap-4 py-4">
-                <div className="grid grid-cols-4 items-center gap-4">
-                  <Label htmlFor="name" className="text-right">Name</Label>
-                  <Input id="name" value={newStudentName} onChange={(e) => setNewStudentName(e.target.value)} className="col-span-3" placeholder="e.g. John Doe" />
+              <div className="space-y-4 py-4">
+                <div className="grid grid-cols-1 gap-2 sm:grid-cols-4 sm:items-center sm:gap-4">
+                  <Label htmlFor="name" className="sm:text-right sm:col-span-1">Name</Label>
+                  <Input id="name" value={newStudentName} onChange={(e) => setNewStudentName(e.target.value)} className="sm:col-span-3" placeholder="e.g. John Doe" />
                 </div>
-                <div className="grid grid-cols-4 items-center gap-4">
-                  <Label htmlFor="studentId" className="text-right">Student ID</Label>
-                  <Input id="studentId" value={newStudentId} onChange={(e) => setNewStudentId(e.target.value)} className="col-span-3" placeholder="e.g. S12345" />
+                <div className="grid grid-cols-1 gap-2 sm:grid-cols-4 sm:items-center sm:gap-4">
+                  <Label htmlFor="studentId" className="sm:text-right sm:col-span-1">Student ID</Label>
+                  <Input id="studentId" value={newStudentId} onChange={(e) => setNewStudentId(e.target.value)} className="sm:col-span-3" placeholder="e.g. S12345" />
                 </div>
-                <div className="grid grid-cols-4 items-center gap-4">
-                  <Label htmlFor="picture" className="text-right">Face Image</Label>
-                  <Input id="picture" type="file" accept="image/*" onChange={handleImageChange} className="col-span-3" />
-                </div>
-                {newStudentImagePreview && (
-                  <div className="col-span-4 flex justify-center">
-                    <Image src={newStudentImagePreview} alt="Preview" width={100} height={100} className="rounded-md object-cover" data-ai-hint="person student"/>
+                <div className="grid grid-cols-1 gap-2 sm:grid-cols-4 sm:items-start sm:gap-4"> {/* items-start for picture label */}
+                  <Label htmlFor="picture" className="sm:text-right sm:col-span-1 sm:pt-2">Face Image</Label>
+                  <div className="sm:col-span-3 space-y-2">
+                    <Input id="picture" type="file" accept="image/*" onChange={handleImageChange} />
+                    {newStudentImagePreview && (
+                      <div className="flex justify-center sm:justify-start">
+                        <Image src={newStudentImagePreview} alt="Preview" width={100} height={100} className="rounded-md object-cover" data-ai-hint="person student"/>
+                      </div>
+                    )}
                   </div>
-                )}
+                </div>
               </div>
               <DialogFooter>
                 <Button type="button" variant="outline" onClick={() => setIsAddStudentDialogOpen(false)}>Cancel</Button>
@@ -169,7 +169,7 @@ export default function StudentsPage() {
               placeholder="Search students..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="max-w-sm"
+              className="w-full sm:max-w-sm"
             />
           </CardContent>
         </Card>
@@ -177,12 +177,12 @@ export default function StudentsPage() {
         {isLoading ? (
           <p className="text-center text-muted-foreground">Loading students...</p>
         ) : filteredStudents.length > 0 ? (
-          <ScrollArea className="h-[calc(100vh-20rem)]"> {/* Adjust height as needed */}
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+          <ScrollArea className="h-[calc(100vh-24rem)] sm:h-[calc(100vh-20rem)]"> {/* Adjust height for search bar */}
+            <div className="grid gap-4 sm:grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
               {filteredStudents.map((student) => (
                 <Card key={student.id} className="flex flex-col">
-                  <CardHeader className="flex flex-row items-center gap-4">
-                    <div className="relative h-16 w-16">
+                  <CardHeader className="flex flex-row items-center gap-4 p-4">
+                    <div className="relative h-16 w-16 shrink-0">
                        <Image
                         src={student.imageUrl || `https://picsum.photos/seed/${student.id}/100/100`}
                         alt={student.name}
@@ -192,12 +192,12 @@ export default function StudentsPage() {
                         data-ai-hint="person student"
                       />
                     </div>
-                    <div>
-                      <CardTitle>{student.name}</CardTitle>
+                    <div className="min-w-0"> {/* Added for text truncation if needed */}
+                      <CardTitle className="truncate">{student.name}</CardTitle>
                       <CardDescription>ID: {student.id}</CardDescription>
                     </div>
                   </CardHeader>
-                  <CardContent className="flex-grow">
+                  <CardContent className="flex-grow px-4 pb-2 pt-0">
                     {student.registeredAt ? (
                       <p className="text-sm text-muted-foreground">
                         Registered on: {new Date(student.registeredAt).toLocaleDateString()}
@@ -208,7 +208,7 @@ export default function StudentsPage() {
                       </p>
                     )}
                   </CardContent>
-                  <CardFooter>
+                  <CardFooter className="px-4 pb-4 pt-2">
                      <p className="text-xs text-muted-foreground">More actions coming soon.</p>
                   </CardFooter>
                 </Card>
@@ -230,4 +230,3 @@ export default function StudentsPage() {
     </>
   );
 }
-

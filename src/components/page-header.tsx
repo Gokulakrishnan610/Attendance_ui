@@ -11,7 +11,7 @@ export function PageHeader({ title, description, actions }: PageHeaderProps) {
     <div className="border-b bg-card">
       <div className="container mx-auto px-4 py-6 sm:px-6 lg:px-8">
         <div className="flex flex-col items-start gap-4 md:flex-row md:items-center md:justify-between">
-          <div>
+          <div className="flex-grow"> {/* Allow title/description to take space */}
             <h1 className="text-2xl font-bold tracking-tight text-foreground sm:text-3xl">
               {title}
             </h1>
@@ -21,7 +21,11 @@ export function PageHeader({ title, description, actions }: PageHeaderProps) {
               </p>
             )}
           </div>
-          {actions && <div className="flex shrink-0 items-center gap-2">{actions}</div>}
+          {/* Actions will naturally wrap if they are in a flex container.
+              The parent component providing 'actions' can control if it's flex-col or flex-row.
+              Default here is a row that wraps.
+           */}
+          {actions && <div className="flex shrink-0 flex-wrap items-center gap-2 w-full md:w-auto">{actions}</div>}
         </div>
       </div>
     </div>

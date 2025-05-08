@@ -18,15 +18,15 @@ import { useToast } from '@/hooks/use-toast';
 import { Input } from '@/components/ui/input';
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogDescription } from '@/components/ui/dialog';
-import { getAttendanceApi, recognizeFacesApi, updateAttendanceApi, getAllStudentsApi } from '@/services/api'; // Import API service
+import { getAttendanceApi, recognizeFacesApi, updateAttendanceApi, getAllStudentsApi } from '@/services/api'; 
 
 export default function AttendancePage() {
-  const { students, setStudents } = useAppStore(); // Using students from store as a master list
+  const { students, setStudents } = useAppStore(); 
   const [isLoadingStudents, setIsLoadingStudents] = useState(true);
   const [isLoadingAttendance, setIsLoadingAttendance] = useState(false);
   
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
-  const [dailyRecords, setDailyRecords] = useState<AttendanceRecord[]>([]); // Records for the selected day from API combined with all students
+  const [dailyRecords, setDailyRecords] = useState<AttendanceRecord[]>([]); 
   
   const [isManualUpdateDialogOpen, setIsManualUpdateDialogOpen] = useState(false);
   const [selectedRecordForUpdate, setSelectedRecordForUpdate] = useState<AttendanceRecord | null>(null);
@@ -53,14 +53,11 @@ export default function AttendancePage() {
   };
   
   const fetchAttendanceForDate = async (dateStr: string) => {
-    if (students.length === 0 && !isLoadingStudents) { // Ensure students are loaded first or being loaded
+    if (students.length === 0 && !isLoadingStudents) { 
       console.warn("Student list not loaded, cannot accurately determine full attendance yet.");
-      // setDailyRecords([]); // Or show a message to load students
-      // return;
     }
     setIsLoadingAttendance(true);
     try {
-      // API returns records for students who have an entry.
       const apiRecords = await getAttendanceApi(dateStr); 
       
       const studentMap = new Map(students.map(s => [s.id, s]));
@@ -69,25 +66,23 @@ export default function AttendancePage() {
       const enrichedRecords: AttendanceRecord[] = students.map(student => {
         const existingApiRecord = recordsMap.get(student.id);
         if (existingApiRecord) {
-          return { ...existingApiRecord, studentName: student.name }; // Use API record, ensure name
+          return { ...existingApiRecord, studentName: student.name }; 
         } else {
-          // If no record from API, student is considered Absent for that day
           return {
-            id: `new-${student.id}-${dateStr}`, // Temp ID for new/absent records
+            id: `new-${student.id}-${dateStr}`, 
             studentId: student.id,
             studentName: student.name,
             date: dateStr,
             status: 'Absent',
           };
         }
-      });
+      }).sort((a,b) => a.studentName.localeCompare(b.studentName));
       
-      setDailyRecords(enrichedRecords.sort((a,b) => a.studentName.localeCompare(b.studentName)));
+      setDailyRecords(enrichedRecords);
 
-    } catch (error) {
+    } catch (error: any) {
       console.error(`Error fetching attendance for ${dateStr}:`, error);
-      toast({ title: "Error", description: `Could not fetch attendance for ${format(parseISO(dateStr), "PPP")}.`, variant: "destructive" });
-      // Fallback: show all students as absent if API fails but students are loaded
+      toast({ title: "Error", description: error.message || `Could not fetch attendance for ${format(parseISO(dateStr), "PPP")}.`, variant: "destructive" });
        if (students.length > 0) {
         const fallbackRecords = students.map(student => ({
             id: `fallback-${student.id}-${dateStr}`,
@@ -95,8 +90,8 @@ export default function AttendancePage() {
             studentName: student.name,
             date: dateStr,
             status: 'Absent' as AttendanceStatus,
-        }));
-        setDailyRecords(fallbackRecords.sort((a,b) => a.studentName.localeCompare(b.studentName)));
+        })).sort((a,b) => a.studentName.localeCompare(b.studentName));
+        setDailyRecords(fallbackRecords);
        } else {
         setDailyRecords([]);
        }
@@ -108,14 +103,14 @@ export default function AttendancePage() {
   useEffect(() => {
     fetchStudentList();
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []); // Fetch student list on mount
+  }, []); 
 
   useEffect(() => {
-    if (!isLoadingStudents) { // Only fetch attendance if students are loaded or loading has finished
+    if (!isLoadingStudents) { 
         fetchAttendanceForDate(formattedDate);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedDate, formattedDate, isLoadingStudents, students]); // Re-fetch when date or student list (if it's reloaded) changes
+  }, [selectedDate, formattedDate, isLoadingStudents, students]); 
 
   const handleDateChange = (date?: Date) => {
     if (date) {
@@ -132,10 +127,13 @@ export default function AttendancePage() {
   const handleManualUpdate = async () => {
     if (selectedRecordForUpdate) {
       try {
+        // Backend's /update_attendance uses today's date, not the provided one.
+        // For UI consistency, we pass selectedRecordForUpdate.date
+        // but the actual update might be for current day based on backend logic.
         const response = await updateAttendanceApi(selectedRecordForUpdate.studentId, newStatus, selectedRecordForUpdate.date);
         if (response.error) throw new Error(response.error);
         toast({ title: "Attendance Updated", description: response.message || `${selectedRecordForUpdate.studentName}'s status set to ${newStatus}.` });
-        fetchAttendanceForDate(formattedDate); // Re-fetch records for the current date
+        fetchAttendanceForDate(formattedDate); 
       } catch (error: any) {
         console.error("Error updating attendance:", error);
         toast({ title: "Update Error", description: error.message || "Could not update attendance.", variant: "destructive" });
@@ -171,7 +169,12 @@ export default function AttendancePage() {
         title: "Video Processed", 
         description: response.message || `Attendance marked. Present: ${response.present_count ?? 0}, Absent: ${response.absent_count ?? 0}. Records refreshed.` 
       });
-      fetchAttendanceForDate(formattedDate); // Re-fetch records for the current date
+      // Video processing always marks for today. If selectedDate is not today, the user might be confused.
+      // It's better to set selectedDate to today after successful video processing.
+      const today = new Date();
+      setSelectedDate(today); // This will trigger re-fetch for today's date.
+      // If fetchAttendanceForDate is not automatically triggered by selectedDate change (due to memoization or other logic), call it explicitly:
+      // fetchAttendanceForDate(format(today, 'yyyy-MM-dd')); 
       setVideoFile(null);
       setIsVideoUploadDialogOpen(false);
     } catch (error: any) {
@@ -197,10 +200,10 @@ export default function AttendancePage() {
         title="Attendance Records" 
         description="View and manage student attendance. Select a date to see records."
         actions={
-          <>
+          <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
             <Popover>
               <PopoverTrigger asChild>
-                <Button variant="outline" className="w-[280px] justify-start text-left font-normal">
+                <Button variant="outline" className="w-full sm:w-[280px] justify-start text-left font-normal">
                   <CalendarIcon className="mr-2 h-4 w-4" />
                   {selectedDate ? format(selectedDate, "PPP") : <span>Pick a date</span>}
                 </Button>
@@ -211,7 +214,7 @@ export default function AttendancePage() {
             </Popover>
              <Dialog open={isVideoUploadDialogOpen} onOpenChange={setIsVideoUploadDialogOpen}>
               <DialogTrigger asChild>
-                <Button>
+                <Button className="w-full sm:w-auto">
                   <UploadCloud className="mr-2 h-4 w-4" /> Upload Video
                 </Button>
               </DialogTrigger>
@@ -219,7 +222,7 @@ export default function AttendancePage() {
                 <DialogHeader>
                   <DialogTitle className="flex items-center gap-2"><Video /> Process Attendance Video</DialogTitle>
                   <DialogDescription>
-                    Upload a class video. The system will attempt to recognize students and mark attendance.
+                    Upload a class video. The system will attempt to recognize students and mark attendance for <strong>today</strong>.
                   </DialogDescription>
                 </DialogHeader>
                 <div className="space-y-4 py-4">
@@ -235,7 +238,7 @@ export default function AttendancePage() {
                 </DialogFooter>
               </DialogContent>
             </Dialog>
-          </>
+          </div>
         }
       />
       <div className="container mx-auto p-4 md:p-6 lg:p-8">
@@ -285,7 +288,7 @@ export default function AttendancePage() {
               </Table>
             ) : (
               <p className="text-muted-foreground text-center py-8">
-                All registered students are currently marked as absent for this day, or no data available. You can manually update their status or upload a video.
+                All registered students are currently marked as absent for this day, or no data available. You can manually update their status or upload a video for today's attendance.
               </p>
             )}
           </CardContent>
@@ -295,7 +298,10 @@ export default function AttendancePage() {
           <DialogContent>
             <DialogHeader>
               <DialogTitle>Update Attendance for {selectedRecordForUpdate?.studentName}</DialogTitle>
-              <DialogDescription>Date: {selectedRecordForUpdate ? format(parseISO(selectedRecordForUpdate.date), "PPP") : ""}</DialogDescription>
+              <DialogDescription>
+                Date: {selectedRecordForUpdate ? format(parseISO(selectedRecordForUpdate.date), "PPP") : ""}. 
+                Note: The backend might save this update for the current date ({format(new Date(), "PPP")}) regardless of the date shown here.
+              </DialogDescription>
             </DialogHeader>
             <div className="py-4">
               <Label htmlFor="status">New Status</Label>
