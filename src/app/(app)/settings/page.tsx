@@ -7,13 +7,13 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Bell, Shield, FileText, Save, Download } from "lucide-react"; // Added Download
+import { Bell, Shield, FileText, Save, Download } from "lucide-react";
 import { useAppStore } from '@/store';
 import type { AppSettings } from '@/types';
 import { PageHeader } from '@/components/page-header';
 import { useToast } from '@/hooks/use-toast';
 import { Separator } from '@/components/ui/separator';
-import { exportCsvApiUrl } from '@/services/api'; // Import API for CSV export
+import { exportCsvApiUrl } from '@/services/api'; 
 
 export default function SettingsPage() {
   const { appSettings, updateAppSettings } = useAppStore();
@@ -31,9 +31,9 @@ export default function SettingsPage() {
     });
   };
   
-  const handleSimpleChange = (key: keyof AppSettings, value: any) => {
-     setCurrentSettings(prev => ({ ...prev, [key]: value }));
-  };
+  // const handleSimpleChange = (key: keyof AppSettings, value: any) => { // This function seems unused
+  //    setCurrentSettings(prev => ({ ...prev, [key]: value }));
+  // };
 
 
   const handleSaveChanges = () => {
@@ -45,7 +45,6 @@ export default function SettingsPage() {
   };
 
   const handleExportCsv = () => {
-    // Directly open the URL for download
     window.open(exportCsvApiUrl, '_blank');
     toast({
         title: "Exporting CSV",
@@ -64,22 +63,23 @@ export default function SettingsPage() {
               <CardDescription>Manage how you receive notifications from the app.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="flex items-center justify-between space-x-2 p-3 rounded-md border hover:bg-accent/50 transition-colors">
-                <Label htmlFor="email-notifications" className="font-medium">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between space-y-2 sm:space-y-0 sm:space-x-2 p-3 rounded-md border hover:bg-accent/50 transition-colors">
+                <Label htmlFor="email-notifications" className="font-medium flex-grow">
                   Email Notifications
-                  <p className="text-xs text-muted-foreground">Receive important updates via email.</p>
+                  <p className="text-xs text-muted-foreground font-normal">Receive important updates via email.</p>
                 </Label>
                 <Switch
                   id="email-notifications"
                   checked={currentSettings.notifications.email}
                   onCheckedChange={(checked) => handleSettingChange('notifications', 'email', checked)}
                   aria-label="Toggle email notifications"
+                  className="shrink-0"
                 />
               </div>
-              <div className="flex items-center justify-between space-x-2 p-3 rounded-md border hover:bg-accent/50 transition-colors">
-                <Label htmlFor="push-notifications" className="font-medium">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between space-y-2 sm:space-y-0 sm:space-x-2 p-3 rounded-md border hover:bg-accent/50 transition-colors">
+                <Label htmlFor="push-notifications" className="font-medium flex-grow">
                   Push Notifications
-                  <p className="text-xs text-muted-foreground">Get real-time alerts on your device (if supported).</p>
+                  <p className="text-xs text-muted-foreground font-normal">Get real-time alerts on your device (if supported).</p>
                 </Label>
                 <Switch
                   id="push-notifications"
@@ -87,6 +87,7 @@ export default function SettingsPage() {
                   onCheckedChange={(checked) => handleSettingChange('notifications', 'push', checked)}
                   aria-label="Toggle push notifications"
                   disabled // Placeholder as this often requires specific setup
+                  className="shrink-0"
                 />
               </div>
             </CardContent>
@@ -98,20 +99,20 @@ export default function SettingsPage() {
               <CardDescription>Manage attendance reports.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-               <div className="flex items-center justify-between space-x-2 p-3 rounded-md border hover:bg-accent/50 transition-colors">
-                <Label htmlFor="export-csv" className="font-medium">
+               <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between space-y-2 sm:space-y-0 sm:space-x-2 p-3 rounded-md border hover:bg-accent/50 transition-colors">
+                <Label htmlFor="export-csv" className="font-medium flex-grow">
                   Export Attendance CSV
-                  <p className="text-xs text-muted-foreground">Download a CSV file of all attendance records.</p>
+                  <p className="text-xs text-muted-foreground font-normal">Download a CSV file of all attendance records.</p>
                 </Label>
-                <Button onClick={handleExportCsv} variant="outline" size="sm">
+                <Button onClick={handleExportCsv} variant="outline" size="sm" className="shrink-0 w-full sm:w-auto">
                     <Download className="mr-2 h-4 w-4"/> Export CSV
                 </Button>
               </div>
               <div className="opacity-50 pointer-events-none"> {/* Disabled scheduled reports section */}
-                  <div className="flex items-center justify-between space-x-2 p-3 rounded-md border">
-                    <Label htmlFor="scheduled-reports-enabled" className="font-medium">
+                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between space-y-2 sm:space-y-0 sm:space-x-2 p-3 rounded-md border">
+                    <Label htmlFor="scheduled-reports-enabled" className="font-medium flex-grow">
                       Enable Scheduled Reports (Coming Soon)
-                      <p className="text-xs text-muted-foreground">Automatically generate and send attendance reports.</p>
+                      <p className="text-xs text-muted-foreground font-normal">Automatically generate and send attendance reports.</p>
                     </Label>
                     <Switch
                       id="scheduled-reports-enabled"
@@ -119,6 +120,7 @@ export default function SettingsPage() {
                       onCheckedChange={(checked) => handleSettingChange('scheduledReports', 'enabled', checked)}
                       aria-label="Toggle scheduled reports"
                       disabled
+                      className="shrink-0"
                     />
                   </div>
                   {currentSettings.scheduledReports.enabled && (
@@ -150,16 +152,17 @@ export default function SettingsPage() {
               <CardDescription>Control how your data is used within the application.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="flex items-center justify-between space-x-2 p-3 rounded-md border hover:bg-accent/50 transition-colors">
-                <Label htmlFor="share-analytics" className="font-medium">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between space-y-2 sm:space-y-0 sm:space-x-2 p-3 rounded-md border hover:bg-accent/50 transition-colors">
+                <Label htmlFor="share-analytics" className="font-medium flex-grow">
                   Share Anonymous Analytics
-                  <p className="text-xs text-muted-foreground">Help us improve the app by sharing anonymous usage data.</p>
+                  <p className="text-xs text-muted-foreground font-normal">Help us improve the app by sharing anonymous usage data.</p>
                 </Label>
                 <Switch
                   id="share-analytics"
                   checked={currentSettings.dataPrivacy.shareAnalytics}
                   onCheckedChange={(checked) => handleSettingChange('dataPrivacy', 'shareAnalytics', checked)}
                   aria-label="Toggle anonymous analytics sharing"
+                  className="shrink-0"
                 />
               </div>
             </CardContent>
@@ -168,7 +171,7 @@ export default function SettingsPage() {
           <Separator />
 
           <div className="flex justify-end">
-            <Button onClick={handleSaveChanges}>
+            <Button onClick={handleSaveChanges} className="w-full sm:w-auto">
               <Save className="mr-2 h-4 w-4" /> Save All Settings
             </Button>
           </div>
@@ -177,4 +180,3 @@ export default function SettingsPage() {
     </>
   );
 }
-
